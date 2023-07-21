@@ -1,8 +1,1 @@
-{
-      name: "cliff",
-      age: "34",
-      name: "ted",
-      age: "42",
-      name: "bob",
-      age: "12"
-}
+{"name":"John", "age":30, "car":null}
