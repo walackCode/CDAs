@@ -68,7 +68,6 @@ public partial class CuttingShapes
 	internal static void SetLayerData(string path, List<Shape> shapes)
     {
         var layer = Layer.GetOrCreate(path);
-        layer.Shapes.Clear();
 
         foreach(var shape in shapes)
             layer.Shapes.Add(shape);
