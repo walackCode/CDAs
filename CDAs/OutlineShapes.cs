@@ -25,7 +25,7 @@ using PrecisionMining.Spry.Util.OptionsForm;
 using PrecisionMining.Spry.Util.UI;
 #endregion
 
-public partial class CuttinShapes
+public partial class CuttingShapes
 {
 	static List<Polygon> selectedShapeBoundary = new List<Polygon>();
 	
@@ -33,7 +33,6 @@ public partial class CuttinShapes
 	internal static CustomDesignAction CreateOutline()
 	{		
         var customDesignAction = new CustomDesignAction("Create Outline", "", "Outlines", Array.Empty<Keys>());
-		customDesignAction.Visible = DesignButtonVisibility.Animation;
 		customDesignAction.SelectionPanelEnabled = true;
 		customDesignAction.SetupAction += (s,e) =>
 		{
@@ -49,14 +48,6 @@ public partial class CuttinShapes
 		{
 			var inputs = customDesignAction.ActionInputs.Triangulations;
 			Layer outputLayer = (Layer) customDesignAction.ActionSettings[0].Value;
-			
-			var backupShapes = outputLayer.Shapes.ToList();
-       		var backupTexts = outputLayer.Texts.ToList();
-	        var backupTriangulations = outputLayer.Triangulations.ToList();
-	        customDesignAction.UndoAction += (s1,e1) =>
-	        {
-	            SetLayerData(outputLayer.FullName, backupShapes, backupTexts, backupTriangulations);
-	        };
 	
 			List<TriangleMesh> triangleList = new List<TriangleMesh>();
 			foreach(var tri in inputs)
@@ -70,30 +61,16 @@ public partial class CuttinShapes
 			{
 				newShapes.Add(new Shape(poly));			
 			}
-			
-			var outputShapes = backupShapes.ToList();
-			outputShapes.AddRange(newShapes);
-	        customDesignAction.RedoAction += (s1,e1) =>
-	        {
-	            SetLayerData(outputLayer.FullName, outputShapes, backupTexts, backupTriangulations);
-	        };
-			
+			SetLayerData(outputLayer.FullName, newShapes);
 		};
 		return customDesignAction;
     }
-	
-	internal static void SetLayerData(string path, List<Shape> shapes, List<Text> texts, List<LayerTriangulation> triangulations)
+	internal static void SetLayerData(string path, List<Shape> shapes)
     {
         var layer = Layer.GetOrCreate(path);
         layer.Shapes.Clear();
-        layer.Texts.Clear();
-        layer.Triangulations.Clear();
 
         foreach(var shape in shapes)
             layer.Shapes.Add(shape);
-        foreach(var text in texts)
-            layer.Texts.Add(text);
-        foreach(var triangulation in triangulations)
-            layer.Triangulations.Add(triangulation);
     }
 }
