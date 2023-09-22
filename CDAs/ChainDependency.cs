@@ -29,7 +29,7 @@ using PrecisionMining.Spry.Util.UI;
 
 //v2 add new chains into existing range dependency
 //v3 add preivous nodes as display items
-public partial class WakeUpHoney
+public partial class Chain
 {
 
     #region Declarations
