@@ -31,7 +31,7 @@ public partial class CalculateDistance
 	[CustomDesignAction]
 	internal static CustomDesignAction CreateDistance()
 	{		
-        var customDesignAction = new CustomDesignAction("Invoke Euclid", "", "Geometry", Array.Empty<Keys>());
+        var customDesignAction = new CustomDesignAction("Calculate Distance", "", "Geometry", Array.Empty<Keys>());
 		customDesignAction.SelectionPanelEnabled = true;
 		customDesignAction.SetupAction += (s,e) =>
 		{
