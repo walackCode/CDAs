@@ -31,7 +31,7 @@ public partial class CalculateArea
 	[CustomDesignAction]
 	internal static CustomDesignAction Calculate()
 	{		
-        var customDesignAction = new CustomDesignAction("The space between", "", "Geometry", Array.Empty<Keys>());
+        var customDesignAction = new CustomDesignAction("Calculate Area", "", "Geometry", Array.Empty<Keys>());
 		customDesignAction.SelectionPanelEnabled = true;
 		customDesignAction.SetupAction += (s,e) =>
 		{
