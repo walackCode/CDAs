@@ -35,7 +35,7 @@ public partial class IndividualDestinationLimitConstraint : ISourceDestinationCo
 	
     public static void EngineSetup(SchedulingEngine engine)
     {
-		engine.Constraints.Add(new DestinationLimitConstraint());
+		engine.Constraints.Add(new IndividualDestinationLimitConstraint());
     }
 	
 	public void PrescheduleSetup(SchedulingEngine engine)
