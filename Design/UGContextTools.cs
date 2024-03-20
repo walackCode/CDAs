@@ -110,8 +110,8 @@ public partial class SetupUGAttributes
 							Console.WriteLine("bearing "+bearing);
 						}
 						
-						shape.AttributeValues[lengthAttribute] = Math.Round(length,2);
-						shape.AttributeValues[bearAttribute] = Math.Round(bearing,2);
+						shape.AttributeValues[lengthAttribute] = Math.Round(length,1);
+						shape.AttributeValues[bearAttribute] = Math.Round(bearing % 180,1);
 						shape.AttributeValues[pointAttribute] = shape.Count;
 					}
 				
