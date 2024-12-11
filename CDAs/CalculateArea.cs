@@ -46,8 +46,26 @@ public partial class CalculateArea
 		customDesignAction.ApplyAction += (s,e) =>
 		{
 			var inputs = customDesignAction.ActionInputs.Shapes;
+			var tris = customDesignAction.ActionInputs.Triangulations;
 			PrecisionMining.Common.Design.Attribute outputAttribute = (PrecisionMining.Common.Design.Attribute) customDesignAction.ActionSettings[0].Value;
-
+			foreach(var tri in tris)
+			{
+				var polyList = tri.Data.CreateSilhouette(new Vector3D(0,0,1), true);
+				var areaSum = 0.0;
+				foreach(var poly in polyList)
+				{
+					List<Point3D> pointList = new List<Point3D>();
+					foreach(var point in poly)
+					{
+						pointList.Add(point);
+					}
+					Polygon2D poly2D = new Polygon2D(pointList);
+					areaSum += poly2D.Area;
+				}
+				tri.AttributeValues.SetValue(outputAttribute,areaSum);
+			}
+			
+			Console.WriteLine(inputs.Count());
 			foreach(var shape in inputs)
 			{
 				List<Point3D> pointList = new List<Point3D>();
