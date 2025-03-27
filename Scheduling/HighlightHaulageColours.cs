@@ -25,6 +25,9 @@ using System.Windows.Forms;
 
 public partial class NetworkHighlighter
 {
+	public static string stopaskingrestore = "StopaskingNWHL";
+	
+	
     [ContextMenuEntryPoint]
     internal static ContextMenuEntryPoint<NetworkLayer> Highight()
     {
@@ -36,114 +39,18 @@ public partial class NetworkHighlighter
         ret.Execute = sourceLayer =>
         {
 
-            var attdet = new Color();
-            var att = new Color();
-            var det = new Color();
-            var rem = new Color();
-            var ste = new Color();
-
-            #region Create String list of Colours
-            var ListofColours = new List<string>();
-            var colourslist = Enum.GetValues(typeof(KnownColor)).Cast<KnownColor>().Select(Color.FromKnownColor).ToList();
-            foreach (Color col in colourslist)
-            {
-                if (col.IsSystemColor)
-                {
-                    continue;
-                }
-                else
-                {
-                    ListofColours.Add(col.Name);
-                }
-            }
-            #endregion
-
-
             var TheCase = sourceLayer.Case;
 
             var maxGrade = TheCase.MaximumProfileGrade;
 
-            var check = new List<string>();
+			var colours = Form(Project.ActiveProject.Scripting.OptionValueCache.Contains(stopaskingrestore)).ToArray();
+			var attdet = colours[0];
+            var att = colours[1];
+            var det = colours[2];
+			var ste = colours[3];
+            var rem = colours[4];
 
-            check.Add("ANDColourSelect");
-
-            check.Add("AColourSelect");
-
-            check.Add("DColourSelect");
-
-            check.Add("SteepColourSelect");
-
-            check.Add("ElseColourSelect");
-
-            var skip = true;
-            var Keys = Project.ActiveProject.Scripting.OptionValueCache.Keys;
-
-
-            foreach (var a in check)
-            {
-                if (!Keys.Contains(a))
-                    skip = false;
-
-            }
-
-
-
-            #region Form			
-            if (!skip)
-            {
-
-                var form = OptionsForm.Create("Colour Selection");
-
-                var attanddet = form.Options.AddComboBox<String>("Attach and Detach Colour").Items.AddRange(ListofColours)
-                    .SetValue("Purple")
-                .RestoreValue("ANDColourSelect");
-
-                var attach = form.Options.AddComboBox<String>("Attach Colour").Items.AddRange(ListofColours)
-                    .SetValue("Magenta")
-                .RestoreValue("AColourSelect");
-
-                var detach = form.Options.AddComboBox<String>("Detach Colour").Items.AddRange(ListofColours)
-                    .SetValue("Cyan")
-                .RestoreValue("DColourSelect");
-
-                var steep = form.Options.AddComboBox<String>("Steep Grade Colour").Items.AddRange(ListofColours)
-                .SetValue("Red")
-                .RestoreValue("SteepColourSelect");
-
-                var remain = form.Options.AddComboBox<String>("Remaining Colour").Items.AddRange(ListofColours)
-                .SetValue("Green")
-                .RestoreValue("ElseColourSelect");
-
-                if (form.ShowDialog() != System.Windows.Forms.DialogResult.OK) // stops the window from closing
-                {
-                    return;
-                }
-
-
-                attdet = Color.FromName(attanddet.Value);
-                att = Color.FromName(attach.Value);
-                det = Color.FromName(detach.Value);
-                rem = Color.FromName(remain.Value);
-                ste = Color.FromName(steep.Value);
-
-
-
-            }
-            #endregion
-
-
-            #region no form
-            if (skip)
-            {
-                attdet = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("ANDColourSelect"));
-                att = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("AColourSelect"));
-                det = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("DColourSelect"));
-                rem = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("ElseColourSelect"));
-                ste = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("SteepColourSelect"));
-            }
-
-            #endregion
-
+            #region
             foreach (NetworkShape s in sourceLayer.Shapes.ToList())
             {
 
@@ -195,6 +102,7 @@ public partial class NetworkHighlighter
                 }
 
             }
+            #endregion
 
 
 
@@ -214,117 +122,23 @@ public partial class NetworkHighlighter
         ret.Execute = sourceFolder =>
         {
 
-            var attdet = new Color();
-            var att = new Color();
-            var det = new Color();
-            var rem = new Color();
-            var ste = new Color();
-
-            #region Create String list of Colours
-            var ListofColours = new List<string>();
-            var colourslist = Enum.GetValues(typeof(KnownColor)).Cast<KnownColor>().Select(Color.FromKnownColor).ToList();
-            foreach (Color col in colourslist)
-            {
-                if (col.IsSystemColor)
-                {
-                    continue;
-                }
-                else
-                {
-                    ListofColours.Add(col.Name);
-                }
-            }
-            #endregion
 
 
             var TheCase = sourceFolder.Case;
 
             var maxGrade = TheCase.MaximumProfileGrade;
+			
+			var colours = Form(Project.ActiveProject.Scripting.OptionValueCache.Contains(stopaskingrestore)).ToArray();	
+			var attdet = colours[0];
+            var att = colours[1];
+            var det = colours[2];
+			var ste = colours[3];
+            var rem = colours[4];
+			
 
-            var check = new List<string>();
-
-            check.Add("ANDColourSelect");
-
-            check.Add("AColourSelect");
-
-            check.Add("DColourSelect");
-
-            check.Add("SteepColourSelect");
-
-            check.Add("ElseColourSelect");
-
-            var skip = true;
-            var Keys = Project.ActiveProject.Scripting.OptionValueCache.Keys;
-
-
-            foreach (var a in check)
-            {
-                if (!Keys.Contains(a))
-                    skip = false;
-
-            }
-
-
-
-            #region Form			
-            if (!skip)
-            {
-
-                var form = OptionsForm.Create("Colour Selection");
-
-                var attanddet = form.Options.AddComboBox<String>("Attach and Detach Colour").Items.AddRange(ListofColours)
-                    .SetValue("Purple")
-                .RestoreValue("ANDColourSelect");
-
-                var attach = form.Options.AddComboBox<String>("Attach Colour").Items.AddRange(ListofColours)
-                    .SetValue("Magenta")
-                .RestoreValue("AColourSelect");
-
-                var detach = form.Options.AddComboBox<String>("Detach Colour").Items.AddRange(ListofColours)
-                    .SetValue("Cyan")
-                .RestoreValue("DColourSelect");
-
-                var steep = form.Options.AddComboBox<String>("Steep Grade Colour").Items.AddRange(ListofColours)
-                .SetValue("Red")
-                .RestoreValue("SteepColourSelect");
-
-                var remain = form.Options.AddComboBox<String>("Remaining Colour").Items.AddRange(ListofColours)
-                .SetValue("Green")
-                .RestoreValue("ElseColourSelect");
-
-                if (form.ShowDialog() != System.Windows.Forms.DialogResult.OK) // stops the window from closing
-                {
-                    return;
-                }
-
-
-                attdet = Color.FromName(attanddet.Value);
-                att = Color.FromName(attach.Value);
-                det = Color.FromName(detach.Value);
-                rem = Color.FromName(remain.Value);
-                ste = Color.FromName(steep.Value);
-
-
-
-            }
-            #endregion
-
-
-            #region no form
-            if (skip)
-            {
-                attdet = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("ANDColourSelect"));
-                att = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("AColourSelect"));
-                det = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("DColourSelect"));
-                rem = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("ElseColourSelect"));
-                ste = Color.FromName(Project.ActiveProject.Scripting.OptionValueCache.GetValue<string>("SteepColourSelect"));
-            }
-
-            #endregion
 			foreach( NetworkLayer sourceLayer in sourceFolder.NetworkLayers.AllNetworkLayers.ToList()) {
             foreach (NetworkShape s in sourceLayer.Shapes.ToList())
             {
-
 
                 if (s.Detachable && s.Attachable)
                 {
@@ -384,53 +198,45 @@ public partial class NetworkHighlighter
 
     public static void ColourSelection()
     {
-
-
-        #region Create String list of Colours
-        var ListofColours = new List<string>();
-        var colourslist = Enum.GetValues(typeof(KnownColor)).Cast<KnownColor>().Select(Color.FromKnownColor).ToList();
-        foreach (Color col in colourslist)
-        {
-            if (col.IsSystemColor)
-            {
-                continue;
-            }
-            else
-            {
-                ListofColours.Add(col.Name);
-            }
-        }
-        #endregion
-
-        var form = OptionsForm.Create("Colour Selection");
-
-        var attanddet = form.Options.AddComboBox<String>("Attach and Detach Colour").Items.AddRange(ListofColours)
-            .SetValue("Purple")
-        .RestoreValue("ANDColourSelect");
-
-        var attach = form.Options.AddComboBox<String>("Attach Colour").Items.AddRange(ListofColours)
-            .SetValue("Magenta")
-        .RestoreValue("AColourSelect");
-
-        var detach = form.Options.AddComboBox<String>("Detach Colour").Items.AddRange(ListofColours)
-            .SetValue("Cyan")
-        .RestoreValue("DColourSelect");
-
-        var steep = form.Options.AddComboBox<String>("Steep Grade Colour").Items.AddRange(ListofColours)
-        .SetValue("Red")
-        .RestoreValue("SteepColourSelect");
-
-        var remain = form.Options.AddComboBox<String>("Remaining Colour").Items.AddRange(ListofColours)
-        .SetValue("Green")
-        .RestoreValue("ElseColourSelect");
-
-        if (form.ShowDialog() != System.Windows.Forms.DialogResult.OK) // stops the window from closing
-        {
-            return;
-        }
+		
+		Form(false);
 
 
     }
+	
+	
+	public static List<Color> Form(bool restore){
+	
+	   var form = OptionsForm.Create("Colour Selection");
 
+                var attanddet = form.Options.AddColourSelect("Attach and Detach Colour").SetValue(Color.Purple)
+                .RestoreValue("ANDColourSelect");
+
+                var attach = form.Options.AddColourSelect("Attach Colour")
+                    .SetValue(Color.Magenta)
+			        .RestoreValue("AColourSelect");
+
+		
+                var detach = form.Options.AddColourSelect("Detach Colour").SetValue(Color.Cyan)
+                .RestoreValue("DColourSelect");
+
+                var steep = form.Options.AddColourSelect("Steep Grade Colour").SetValue(Color.Red)
+                .RestoreValue("SteepColourSelect");
+
+                var remain = form.Options.AddColourSelect("Remaining Colour").SetValue(Color.Green)
+                .RestoreValue("ElseColourSelect");
+		
+				var stopasking = form.Options.AddCheckBox("Stop Asking").RestoreValue(stopaskingrestore).SetValue(restore).SetVisible(false);
+			
+			if(!stopasking.Value)
+                if (form.ShowDialog() != System.Windows.Forms.DialogResult.OK) // stops the window from closing
+                {
+                    return null;
+                }
+	
+
+			return new List<Color>{attanddet.Value,attach.Value,detach.Value,steep.Value,remain.Value};
+				
+				
+	}
 }
-
