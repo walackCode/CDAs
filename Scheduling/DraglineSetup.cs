@@ -29,14 +29,58 @@ public partial class DragTheDirt
     public static void PushIt()
     {
         var optionsForm = OptionsForm.Create("Attributes from Fields");
-		var caseSelect = optionsForm.Options.AddCaseSelect("Select Case");
-		var positiveBlockOffset = optionsForm.Options.AddSpinEdit("Positive Block Offset");
-		var negativeBlockOffset = optionsForm.Options.AddSpinEdit("Negative Block Offset");
-		var stripOffset = optionsForm.Options.AddSpinEdit("Strip Offset");
-		var pitPrefix = optionsForm.Options.AddTextEdit("Pit Prefix");
-		var dumpPrefix = optionsForm.Options.AddTextEdit("Dump Prefix");
+		var caseSelect = optionsForm.Options.AddCaseSelect("Select Case")
+						.Validators.Add(x => x != null, "Please select case")
+            			.RestoreValue("Case ", _case => _case.FullName, str => Case.TryGet(str));
+		var positiveBlockOffset = optionsForm.Options.AddSpinEdit("Positive Block Offset")
+						.RestoreValue("Positive-Block-Offset");
+		var negativeBlockOffset = optionsForm.Options.AddSpinEdit("Negative Block Offset")
+						.RestoreValue("Negative-Block-Offset");
+		var stripOffset = optionsForm.Options.AddSpinEdit("Strip Offset")
+						.RestoreValue("Strip-Offset");
+		var pitPrefix = optionsForm.Options.AddTextEdit("Pit Prefix")
+						.RestoreValue("Pit-Prefix");
+		
+		var dumpPrefix = optionsForm.Options.AddTextEdit("Dump Prefix")
+						.RestoreValue("Dump-Previx");
 		var draglineProcess = optionsForm.Options.AddProcessSelect("Dragline Process", true, true, false);
+		draglineProcess.SetCase(caseSelect.Value);
+        draglineProcess.RestoreValues("DL-PROCESSES",
+            x => draglineProcess.IncludeAll ? "< All >" : string.Join(",", draglineProcess.Processes.Select(process => process.Name)),
+            x =>
+            {
+                var @case = caseSelect.Value;
+                if (@case == null || x == null)
+                    return null;
+
+                if (x.Equals("< All >"))
+                {
+                    draglineProcess.IncludeAll = true;
+                    return null;
+                }
+                else
+                    return x.Split(',').Select(process => @case.Processes.Get(process)).Where(process => process != null);
+            });
+		
 		var draglineEquipment = optionsForm.Options.AddEquipmentSelect("Equipment", true);
+		draglineEquipment.SetCase(caseSelect.Value);
+        draglineEquipment.RestoreValues("DL-Equipment",
+            x => draglineEquipment.IncludeAll ? "< All >" : string.Join(",", draglineEquipment.Equipment.Select(equipment => equipment.FullName)),
+            x =>
+            {
+                var @case = caseSelect.Value;
+                if (@case == null || x == null)
+                    return null;
+
+                if (x.Equals("< All >"))
+                {
+                    draglineEquipment.IncludeAll = true;
+                    return null;
+                }
+                else
+                    return x.Split(',').Select(equipment => @case.Equipment.GetEquipment(equipment)).Where(equipment => equipment != null);
+            });
+				
 		
 		caseSelect.ValueChanged += (s,e) =>
 		{
