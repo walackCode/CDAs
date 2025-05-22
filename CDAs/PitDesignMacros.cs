@@ -31,6 +31,7 @@ public partial class PitDesignHelper
 	private static TextEditOption folderName;
 	private static SpinEditOption<double> stripSpacing;
 	private static SpinEditOption<double> stripRepetitions;
+	private static Vector3DEditOption stripDirectionSelection;
 	private static List<IShape> selectedLine;
 	[CustomDesignAction]
 	internal static CustomDesignAction CreatePolys()
@@ -52,10 +53,11 @@ public partial class PitDesignHelper
 			stripRepetitions = form.Options.AddSpinEdit("Number of strips").SetValue(10).RestoreValue("StripNumber",true,true);
 			stripSpacing.ValueChanged += eventContainer.EditValueChanged;
 			stripRepetitions.ValueChanged += eventContainer.EditValueChanged;
-			var stripDirectionSelection = form.Options.AddVector3DEdit("Strip Direction").RestoreValue("StripDirection", vector => vector.X.ToString() + "/" + vector.Y.ToString() + "/" + vector.Z.ToString(), str => {
+			stripDirectionSelection = form.Options.AddVector3DEdit("Strip Direction").RestoreValue("StripDirection", vector => vector.X.ToString() + "/" + vector.Y.ToString() + "/" + vector.Z.ToString(), str => {
 				var splits = str.Split('/');
 				return new Vector3D(Convert.ToDouble(splits[0]),Convert.ToDouble(splits[1]),Convert.ToDouble(splits[2]));
 			},true,true);
+			stripDirectionSelection.ValueChanged += eventContainer.EditValueChanged;
 			var getVecButton1 = form.Options.AddButtonEdit("Get Vector");
 			getVecButton1.ClickAction = (o) => {
 				customDesignAction.SecondaryActions.GetVectorAction((done,vec) => {
@@ -90,6 +92,8 @@ public partial class PitDesignHelper
 		customDesignAction.ApplyAction += (s,e) =>
 		{
 			var stripSpacing = (double) customDesignAction.ActionSettings[1].Value;
+			var stripSpacingDirection = GuessSpacingDirection(selectedLine[0], stripSpacing, stripDirectionSelection.Value);
+			stripSpacing *= stripSpacingDirection;
 			var stripRepetitions = (double) customDesignAction.ActionSettings[2].Value;
 			var stripDirection = (Vector3D) customDesignAction.ActionSettings[3].Value;
 			var blockSpacing = (double) customDesignAction.ActionSettings[5].Value;
@@ -130,6 +134,40 @@ public partial class PitDesignHelper
 			e.Completed = true;
 		};
 		return customDesignAction;
+	}
+	
+	internal static double GuessSpacingDirection(IShape shape, double spacing, Vector3D direction) {
+		if (direction.Length == 0) {
+			return 1.0;
+		}
+		using (var progress = Progress.CreateProgressOptions())
+		{
+			var settings = new ProjectionSettings(spacing,0,0);
+			var options = Actions.ProjectShapes.CreateOptions(new[] { shape }, settings, progress, isOffset: true, repetitionCount: 1);
+			var projectedLines = Actions.ProjectShapes.Run(options);
+			var testLine1 = projectedLines.ProjectedShapes.FirstOrDefault();
+			if (testLine1 == null)
+				return 0.0;
+			
+			settings.Distance = -spacing;
+			options = Actions.ProjectShapes.CreateOptions(new[] { shape }, settings, progress, isOffset: true, repetitionCount: 1);
+			projectedLines = Actions.ProjectShapes.Run(options);
+			var testLine2 = projectedLines.ProjectedShapes.FirstOrDefault();
+			if (testLine2 == null)
+				return 0.0;
+			
+			var point = shape[0] + direction.Normalise() * spacing;
+			var testPoint1 = new Line3D(testLine1[0], testLine1[1]).GetClosestPointOnLine(point);
+			var testPoint2 = new Line3D(testLine2[0], testLine2[1]).GetClosestPointOnLine(point);
+			var testDistance1 = (testPoint1 - point).Length;
+			var testDistance2 = (testPoint2 - point).Length;
+			
+			if ((point - testPoint1).Length < (point - testPoint2).Length) {
+				return 1.0;
+			} else {
+				return -1.0;
+			}
+		}
 	}
 	
 	[CustomDesignAction]
@@ -185,7 +223,8 @@ public partial class PitDesignHelper
 	
 	private static void CreatePreview(CustomDesignAction customDesignAction)
 	{
-		var strips = OffsetInputLine(selectedLine, stripSpacing.Value, stripRepetitions.Value);
+		var offset = GuessSpacingDirection(selectedLine[0], stripSpacing.Value, stripDirectionSelection.Value);
+		var strips = OffsetInputLine(selectedLine, stripSpacing.Value * offset, stripRepetitions.Value);
 		foreach(var strip in strips)
 		{
 			customDesignAction.AddClonedTemporaryShape(strip,true,false,true,null);
