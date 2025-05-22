@@ -136,7 +136,7 @@ public partial class PitDesignHelper
 	internal static CustomDesignAction CutPit()
 	{
 		var customDesignAction = new CustomDesignAction("Cut up Pit Solid", "", "Design", Array.Empty<Keys>());
-		customDesignAction.SelectionPanelEnabled = true;
+		customDesignAction.SelectionPanelEnabled = false;
 		customDesignAction.SetupAction += (s,e) =>
 		{
 			customDesignAction.SetSelectMode(SelectMode.None);
