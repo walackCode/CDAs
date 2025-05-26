@@ -378,6 +378,11 @@ public partial class PitDesignHelper
 		var totalLength = (firstLine.First().CloneXY(0) - firstLine.Last().CloneXY(0)).Length;
 		var totalCount = Math.Floor(totalLength/blockSpacing);
 		
+		var blockDirection = new Vector3D(firstLine.Last().X - firstLine.First().X, firstLine.Last().Y - firstLine.First().Y, 0);
+		
+		var spacingToggle = GuessSpacingDirection(blockLine,blockSpacing,blockDirection);
+		blockSpacing *= spacingToggle;
+		
 		using(var progress = Progress.CreateProgressOptions())
 		{
 			inputShapesList.Add(blockLine);
@@ -395,6 +400,7 @@ public partial class PitDesignHelper
 		{
 			var options = Actions.CreateAllClosedAreas.CreateOptions(inputShapesList,progress);
 			var polys = Actions.CreateAllClosedAreas.Run(options);
+			Console.WriteLine(polys.Polygons.Count);
 			foreach(var poly in polys.Polygons)
 			{
 				var pointList = new List<Point3D>();
@@ -406,6 +412,12 @@ public partial class PitDesignHelper
 				shape.Closed = true;
 				shapeList.Add(shape);
 			}
+		}
+		
+		var x = Layer.GetOrCreate("JackTest");
+		foreach(var shape in inputShapesList)
+		{
+			x.Shapes.Add(shape.Clone());
 		}
 		
 		return shapeList;
