@@ -1,0 +1,171 @@
+#region Using Directives
+using System;
+using System.Drawing;
+using System.IO;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+using PrecisionMining.Common.Design;
+using PrecisionMining.Common.Design.Data;
+using PrecisionMining.Common.Math;
+using PrecisionMining.Common.UI;
+using PrecisionMining.Common.UI.Design;
+using PrecisionMining.Common.Units;
+using PrecisionMining.Common.Util;
+using PrecisionMining.Spry;
+using PrecisionMining.Spry.Util;
+using PrecisionMining.Spry.Data;
+using PrecisionMining.Spry.Design;
+using PrecisionMining.Spry.Scenarios;
+using PrecisionMining.Spry.Scenarios.Haulage;
+using PrecisionMining.Spry.Scenarios.Scheduling;
+using PrecisionMining.Spry.Scripting;
+using PrecisionMining.Spry.Spreadsheets;
+using PrecisionMining.Spry.Util.OptionsForm;
+using PrecisionMining.Spry.Util.UI;
+#endregion
+
+public partial class JohnsOffset
+{
+	private static LayerSelectOption folderName;
+	private static SpinEditOption<double> stripSpacing;
+	private static SpinEditOption<double> stripRepetitions;
+	private static Vector3DEditOption stripDirectionSelection;
+	private static List<IShape> selectedLine;
+	[CustomDesignAction]
+    internal static CustomDesignAction offset()
+    {
+        var customDesignAction = new CustomDesignAction("Offset", "", "Design", Array.Empty<Keys>());
+		var eventContainer = new EventContainer();
+		eventContainer.CDA = customDesignAction;
+		customDesignAction.SelectionPanelEnabled = true;
+		customDesignAction.SetupAction += (s,e) =>
+		{
+			customDesignAction.SetSelectMode(SelectMode.SelectElement);
+		};
+		
+		customDesignAction.OptionsForm += (s,e) =>
+		{
+			var form = OptionsForm.Create("form");
+			folderName = form.Options.AddLayerSelect("Output Layer Name").RestoreValue("LayerSelect", layer => layer.ToString(), text => Project.ActiveProject.Design.LayerData.GetLayer(text),true,true);
+			stripSpacing = form.Options.AddSpinEdit("Spacing").SetValue(10).RestoreValue("StripSpacing",true,true);
+			stripSpacing.ValueChanged += eventContainer.EditValueChanged;
+			stripRepetitions = form.Options.AddSpinEdit("Number").SetValue(10).RestoreValue("StripNumber",true,true);
+			stripRepetitions.ValueChanged += eventContainer.EditValueChanged;
+			stripDirectionSelection = form.Options.AddVector3DEdit("Direction").RestoreValue("StripDirection", vector => vector.X.ToString() + "/" + vector.Y.ToString() + "/" + vector.Z.ToString(), str => {
+				var splits = str.Split('/');
+				return new Vector3D(Convert.ToDouble(splits[0]),Convert.ToDouble(splits[1]),Convert.ToDouble(splits[2]));
+			},true,true);
+			stripDirectionSelection.ValueChanged += eventContainer.EditValueChanged;
+			var getVecButton1 = form.Options.AddButtonEdit("Get Vector");
+			getVecButton1.ClickAction = (o) => {
+				customDesignAction.SecondaryActions.GetVectorAction((done,vec) => {
+					if(done)
+						stripDirectionSelection.Value = vec.Normalise();
+				});
+			};
+			e.OptionsForm = form;
+		};
+		
+		customDesignAction.SelectAction += (s,e) =>
+		{
+			var x = new List<IShape>();
+			x.Add((IShape)customDesignAction.Selection.SelectedDesignElement);
+			selectedLine = x;
+			customDesignAction.ClearTemporaryShapes();
+			CreatePreview(customDesignAction);
+		};
+		
+		customDesignAction.ApplyAction += (s,e) =>
+		{
+			var stripSpacing = (double) customDesignAction.ActionSettings[1].Value;
+			var stripSpacingDirection = GuessSpacingDirection(selectedLine[0], stripSpacing, stripDirectionSelection.Value);
+			stripSpacing *= stripSpacingDirection;
+			var stripRepetitions = (double) customDesignAction.ActionSettings[2].Value;
+			var stripDirection = (Vector3D) customDesignAction.ActionSettings[3].Value;
+			var strips = OffsetInputLine(selectedLine, stripSpacing, stripRepetitions);
+			var outputLayer = folderName.Value;
+			foreach(var strip in strips)
+			{
+				outputLayer.Shapes.Add(strip.Clone());
+			}
+			customDesignAction.ClearTemporaryShapes();
+			
+		};
+		return customDesignAction;
+	}
+	
+	private static List<IShape> OffsetInputLine(List<IShape> inputShapesList, double spacing, double repetitions)
+    {
+		using (var progress = Progress.CreateProgressOptions())
+		{
+			var settings = new ProjectionSettings(spacing,0,0);
+			var options = Actions.ProjectShapes.CreateOptions(inputShapesList, settings, progress, isOffset: true, repetitionCount: Convert.ToInt32(repetitions));
+			var projectedLines = Actions.ProjectShapes.Run(options);
+			return projectedLines.ProjectedShapes;
+		}
+    }
+	
+	internal static double GuessSpacingDirection(IShape shape, double spacing, Vector3D direction) {
+		if (direction.Length == 0) {
+			return 1.0;
+		}
+		using (var progress = Progress.CreateProgressOptions())
+		{
+			var settings = new ProjectionSettings(spacing,0,0);
+			var options = Actions.ProjectShapes.CreateOptions(new[] { shape }, settings, progress, isOffset: true, repetitionCount: 1);
+			var projectedLines = Actions.ProjectShapes.Run(options);
+			var testLine1 = projectedLines.ProjectedShapes.FirstOrDefault();
+			if (testLine1 == null)
+				return 0.0;
+			
+			settings.Distance = -spacing;
+			options = Actions.ProjectShapes.CreateOptions(new[] { shape }, settings, progress, isOffset: true, repetitionCount: 1);
+			projectedLines = Actions.ProjectShapes.Run(options);
+			var testLine2 = projectedLines.ProjectedShapes.FirstOrDefault();
+			if (testLine2 == null)
+				return 0.0;
+			
+			var point = shape[0] + direction.Normalise() * spacing;
+			var testPoint1 = new Line3D(testLine1[0], testLine1[1]).GetClosestPointOnLine(point);
+			var testPoint2 = new Line3D(testLine2[0], testLine2[1]).GetClosestPointOnLine(point);
+			var testDistance1 = (testPoint1 - point).Length;
+			var testDistance2 = (testPoint2 - point).Length;
+			
+			if ((point - testPoint1).Length < (point - testPoint2).Length) {
+				return 1.0;
+			} else {
+				return -1.0;
+			}
+		}
+	}
+	
+	private static void CreatePreview(CustomDesignAction customDesignAction)
+	{
+		var offset = GuessSpacingDirection(selectedLine[0], stripSpacing.Value, stripDirectionSelection.Value);
+		var strips = OffsetInputLine(selectedLine, stripSpacing.Value * offset, stripRepetitions.Value);
+		foreach(var strip in strips)
+		{
+			var points = new List<Point3D>();
+			foreach(var point in strip)
+			{
+				points.Add(point);
+			}
+			var h = customDesignAction.AddColourTemporaryShape(points.ToArray(),false,Color.Aqua,true,false,true,null);
+		}
+
+	}
+	
+	public class EventContainer
+	{
+		public CustomDesignAction CDA { get; set;}
+		public void EditValueChanged(object sender, EventArgs e)
+		{
+			if (CDA == null)
+				return;
+			CDA.ClearTemporaryShapes();
+			CreatePreview(CDA);
+		}	
+	}
+}
