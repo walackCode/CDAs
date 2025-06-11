@@ -64,7 +64,7 @@ public partial class DoubleCountRemoval
 		{
 			polygons = inputShapes.Select(x => new Polygon(x)).ToList();
 		}
-		var output = SmartSubtract.Subtract(polygons, null, grouping);
+		var output = SmartSubtract.Subtract(polygons, null, null, grouping);
 		outputLayer.Shapes.Clear();
 		for(int i = 0; i < inputShapes.Count; i++)
 		{
