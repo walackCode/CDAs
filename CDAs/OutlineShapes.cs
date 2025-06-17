@@ -42,6 +42,7 @@ public partial class CuttingShapes
 		{
 			var form = OptionsForm.Create("test");
 			var outputSelection = form.Options.AddLayerSelect("Output",false);
+			var simplifyOutput = form.Options.AddCheckBox("Simplify Outputs");
 			e.OptionsForm = form;
 		};
 		customDesignAction.ApplyAction += (s,e) =>
@@ -61,15 +62,35 @@ public partial class CuttingShapes
 			{
 				newShapes.Add(new Shape(poly));			
 			}
-			SetLayerData(outputLayer.FullName, newShapes);
+			SetLayerData(outputLayer.FullName, newShapes, (bool) customDesignAction.ActionSettings[1].Value);
 		};
 		return customDesignAction;
     }
-	internal static void SetLayerData(string path, List<Shape> shapes)
+	internal static void SetLayerData(string path, List<Shape> shapes, bool simplify)
     {
         var layer = Layer.GetOrCreate(path);
 
         foreach(var shape in shapes)
-            layer.Shapes.Add(shape);
+		{
+			Shape simplifiedShape = null;
+			
+			if (simplify)
+			{
+				var simplifyShapeOptions = Actions.SimplifyShapes.CreateOptions(SimplifyShapeOptions.SimplificationType.TwoDimensional, new List<Shape> {shape}, null, 1d, true, 5);
+				var simplifyShapeResults = Actions.SimplifyShapes.Run(simplifyShapeOptions);
+				
+				if (simplifyShapeResults.Success && simplifyShapeResults.Shapes.Count > 0)
+				{
+					var newShape = (Shape) simplifyShapeResults.Shapes.FirstOrDefault();
+					newShape.Closed = true;
+					simplifiedShape = (Shape) newShape;
+				}					
+			}
+			
+			if (simplifiedShape != null)
+				layer.Shapes.Add(simplifiedShape);			
+            else
+				layer.Shapes.Add(shape);
+		}
     }
 }
