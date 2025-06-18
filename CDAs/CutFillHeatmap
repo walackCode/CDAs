@@ -1,0 +1,208 @@
+#region Using Directives
+using System;
+using System.Drawing;
+using System.IO;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+using PrecisionMining.Common.Design;
+using PrecisionMining.Common.Design.Data;
+using PrecisionMining.Common.Math;
+using PrecisionMining.Common.UI.Design;
+using PrecisionMining.Spry.UI.Design;
+using PrecisionMining.Common.Units;
+using PrecisionMining.Spry;
+using PrecisionMining.Spry.Util;
+using PrecisionMining.Spry.Data;
+using PrecisionMining.Spry.Design;
+using PrecisionMining.Spry.Scenarios;
+using PrecisionMining.Spry.Scenarios.Haulage;
+using PrecisionMining.Spry.Scenarios.Scheduling;
+using PrecisionMining.Spry.Scripting;
+using PrecisionMining.Spry.Spreadsheets;
+using PrecisionMining.Spry.Util.OptionsForm;
+using PrecisionMining.Spry.Util.UI;
+#endregion
+
+#region Version History
+//v1.0 - 18.06.2025 - Created by N Delaney @ PMC
+#endregion
+
+public partial class CutFillHeatmap
+{
+	private static int colorBracketCount, cutClamp, fillClamp;		
+	private static Color[] InterpolatedRainbow;
+	private static bool allOutputsVisible = false;
+		
+	[CustomDesignAction]
+	internal static CustomDesignAction CreateHeatMap()
+	{		
+        var customDesignAction = new CustomDesignAction("Cut Fill Heatmap", "Highlight Compliance to Plan", "", Array.Empty<Keys>());
+		customDesignAction.SelectionPanelEnabled = false;
+		customDesignAction.SetupAction += (s,e) =>
+		{
+		};
+		customDesignAction.OptionsForm += (s,e) => 
+		{
+			var form = OptionsForm.Create("");
+			
+			var inputGrid = form.Options.AddGridSelect("End of Period Grid", false); 
+			inputGrid.Validators.Add(x => x != null, "Select a grid.");
+			
+			var inputTri = form.Options.AddTriangulationSelect("Survey Surface", false); 
+			inputTri.Validators.Add(x => x != null, "Select a Triangulation");
+			
+			var outputSelection = form.Options.AddLayerSelect("Output Layer",false);
+			outputSelection.Validators.Add(x => x != null, "Select a Layer");
+			
+			var cutClampValue = form.Options.AddSpinEdit<int>("Cut Value Clamp").SetValue(-20).RestoreValue("cutClampValue",true, true);
+			var fillClampValue = form.Options.AddSpinEdit<int>("Fill Value Clamp").SetValue(20).RestoreValue("fillClampValue",true, true).Validators.Add(x => x > cutClampValue.Value, "Fill Clamp must be greater than Cut Clamp.");
+			cutClampValue.Validators.Add(x => x < fillClampValue.Value, "Cut Clamp must be greater than Fill Clamp.");
+			
+			var showAllOutputs = form.Options.AddCheckBox("Show All").SetValue(false).RestoreValue("showAll",true,true);
+			
+			e.OptionsForm = form;
+		};
+		customDesignAction.ApplyAction += (s,e) =>
+		{		
+			var gridLayer = (Grid) customDesignAction.ActionSettings[0].Value;
+			var gridAabb = gridLayer.Data.Aabb;
+			var gridTriangulation = gridLayer.Data.Triangulate(true, gridAabb);
+			
+			var registerLayer = (Triangulation) customDesignAction.ActionSettings[1].Value;
+			var registerMesh = registerLayer.Data.Properties.TriangleMesh;
+			
+			var outputLayer = (Layer) customDesignAction.ActionSettings[2].Value;
+			outputLayer.Triangulations.Clear();
+			
+			cutClamp = (int) customDesignAction.ActionSettings[3].Value;
+			fillClamp = (int) customDesignAction.ActionSettings[4].Value;
+			
+			int stepsPerSegment = 10; // resolution of color gradient
+			colorBracketCount = (KeyColors.Length - 1) * stepsPerSegment;
+			InterpolatedRainbow = GenerateInterpolatedRainbow(colorBracketCount);
+			allOutputsVisible = (bool) customDesignAction.ActionSettings[5].Value; 			
+			
+			GenerateHeatMap(gridTriangulation, registerMesh, outputLayer, cutClamp, fillClamp);
+		};
+		return customDesignAction;
+    }
+	
+	private static void GenerateHeatMap(TriangleMesh gridMesh, TriangleMesh registerMesh, Layer outputLayer, int cutClamp, int fillClamp)
+	{
+		foreach (var tri in gridMesh.Properties.TriangleMesh.ToList())
+			{				
+				double plannedAvgZ = GetAverageZ(tri,null);			
+				List<Triangle> triList = new List<Triangle>();				
+				
+				Point3D first = registerMesh.Register(tri.FirstPoint);
+				Point3D second = registerMesh.Register(tri.SecondPoint);
+				Point3D third = registerMesh.Register(tri.ThirdPoint);
+				
+				if (first == null || second == null || third == null)
+					continue;
+				
+				Triangle surveyTri = new Triangle(first, second, third);
+				double surveyAvgZ = GetAverageZ(null,surveyTri);
+				double diffZ = surveyAvgZ - plannedAvgZ;
+				
+				if (!allOutputsVisible && diffZ > -1 && diffZ < 1) //slows down animation if we produce hundres of thousands of tris
+					continue;
+				
+				//Attributes
+				
+				var cutFillIdentifier = Project.ActiveProject.Design.Attributes.GetOrCreateAttribute(@"Cut Fill Heatmap\Cut or Fill", "", typeof(string));
+				var cutFillZDiff = Project.ActiveProject.Design.Attributes.GetOrCreateAttribute(@"Cut Fill Heatmap\Compliance Z Offset", "Planned Z minus Actual Z", typeof(double));
+							
+				//Colouring
+				
+				triList.Add(surveyTri);			
+				var outputMesh = new TriangleMesh(triList);
+				var outputTri = new LayerTriangulation(outputMesh);
+				outputTri.RgbColour = GetColorFromZ(diffZ);
+				outputTri.AttributeValues[cutFillIdentifier] = diffZ > 0 ? "Fill" : "Cut";
+				outputTri.AttributeValues[cutFillZDiff] = Math.Round(diffZ);
+				
+				if (outputTri != null)				
+					outputLayer.Triangulations.Add(outputTri);
+			} 		
+	}
+	
+	private static double GetAverageZ(TriangleMeshTriangle mTri = null, Triangle tri = null)
+	{		
+		if (mTri != null)
+			return SafeDivide(mTri.FirstPoint.Z + mTri.SecondPoint.Z + mTri.ThirdPoint.Z, 3);
+		else
+			return SafeDivide(tri.FirstPoint.Z + tri.SecondPoint.Z + tri.ThirdPoint.Z, 3);		
+	}
+	
+	private static Color GetColorFromZ(double newTriZ)
+	{
+	    // Clamp averageZ between form values
+		
+		newTriZ = Math.Max(cutClamp, Math.Min(fillClamp, newTriZ));	
+		double normalised = SafeDivide(newTriZ - cutClamp, fillClamp - cutClamp);
+		int index = (int)(normalised * (InterpolatedRainbow.Length - 1));
+		index = Math.Max(0, Math.Min(index, InterpolatedRainbow.Length - 1));
+		
+		Out.WriteLine(string.Format("Tri Z:{0} \n Current Index:{1} \n Array Size:{2}",Math.Round(newTriZ),index,colorBracketCount));
+
+    	return InterpolatedRainbow[index];
+	}	
+
+	private static readonly Color[] KeyColors = new Color[]
+	{
+	    // Define X rainbow colors from violet to red
+	     	Color.Violet,
+			Color.Indigo,
+			Color.Blue,			
+			Color.Cyan,
+			Color.LimeGreen,
+			Color.Yellow,
+			Color.Orange,			
+			Color.Red
+	 };
+
+	private static Color[] GenerateInterpolatedRainbow(int totalSteps)
+    {
+        int segments = KeyColors.Length - 1;
+        int[] stepsPerSegment = new int[segments];
+        int baseSteps = totalSteps / segments;
+        int remainder = totalSteps % segments;
+
+        for (int i = 0; i < segments; i++)
+            stepsPerSegment[i] = baseSteps + (i < remainder ? 1 : 0);
+
+        Color[] result = new Color[totalSteps];
+        int resultIndex = 0;
+
+        for (int i = 0; i < segments; i++)
+        {
+            Color start = KeyColors[i];
+            Color end = KeyColors[i + 1];
+            int steps = stepsPerSegment[i];
+
+            for (int s = 0; s < steps; s++)
+            {
+                double t = (steps == 1) ? 0.0 : (double)s / (steps - 1);
+                int r = (int)(start.R + (end.R - start.R) * t);
+                int g = (int)(start.G + (end.G - start.G) * t);
+                int b = (int)(start.B + (end.B - start.B) * t);
+                result[resultIndex++] = Color.FromArgb(255, r, g, b);
+            }
+        }
+
+        return result;
+    }
+	
+	private static double SafeDivide(double numerator, double denominator)
+	{
+		if (denominator == 0)
+			return 0;
+		double result = numerator / denominator;
+		if (double.IsNaN(result) || double.IsInfinity(result))
+			return 0;
+		return result;
+	}	
+}
