@@ -188,6 +188,7 @@ public partial class PitDesignHelper
 			var stratigraphy = form.Options.AddTextEdit("Stratigraphy Name").RestoreValue("Stratigraphy",true,true);
 			var benchHeight = form.Options.AddSpinEdit("Bench Height").SetValue(5).RestoreValue("BenchHeight",true,true);
 			var referenceBench = form.Options.AddSpinEdit("Reference Bench").SetValue(0).RestoreValue("ReferenceBench",true,true);
+			var pitName = form.Options.AddTextEdit("Pit Name").SetValue("Default").RestoreValue("PitName",true,true);
 			e.OptionsForm = form;
 		};
 		customDesignAction.ApplyAction += (s,e) =>
@@ -198,7 +199,9 @@ public partial class PitDesignHelper
 			var stratigraphyName = (string) customDesignAction.ActionSettings[3].Value;
 			var benchHeight = (double) customDesignAction.ActionSettings[4].Value;
 			var referenceBench = (double) customDesignAction.ActionSettings[5].Value;
-			var stripsAndBlocks = CutPitToPolys(pitLayer,polyLayer);
+			var pitName = (string) customDesignAction.ActionSettings[6].Value;
+			var volumeAttribute = Project.ActiveProject.Design.Attributes.GetOrCreateAttribute("Volume");
+			var stripsAndBlocks = CutPitToPolys(pitLayer,polyLayer,pitName);
 			var stripsAndBlocksLayer = Layer.GetOrCreate(outputPrefix + @"/Strips and Blocks");
 			stripsAndBlocksLayer.Triangulations.Clear();
 			foreach(var tri in stripsAndBlocks)
@@ -213,6 +216,7 @@ public partial class PitDesignHelper
 			benchedLayer.Triangulations.Clear();
 			foreach(var tri in cutBenches)
 			{
+				tri.AttributeValues.SetValue(volumeAttribute,tri.GetTriangulationVolume(true));
 				benchedLayer.Triangulations.Add(tri);
 			}
 			e.Completed = true;
@@ -479,17 +483,19 @@ public partial class PitDesignHelper
 		}
 	}
 	
-	private static List<LayerTriangulation> CutPitToPolys(Layer pitLayer, Layer polyLayer)
+	private static List<LayerTriangulation> CutPitToPolys(Layer pitLayer, Layer polyLayer, string pitName)
 	{
 		List<PrecisionMining.Common.Design.Attribute> attributeList = new List<PrecisionMining.Common.Design.Attribute>();
 		var attribute1 = Project.ActiveProject.Design.Attributes.GetOrCreateAttribute("Block");
 		var attribute2 = Project.ActiveProject.Design.Attributes.GetOrCreateAttribute("Strip");
+		var attribute3 = Project.ActiveProject.Design.Attributes.GetOrCreateAttribute("Pit","",pitName.GetType());
 		attributeList.Add(attribute1);
 		attributeList.Add(attribute2);
 		var inputShapes = new List<Shape>();
 		var triangulationList = new List<LayerTriangulation>();
 		foreach(var tri in pitLayer.Triangulations)
 		{
+			tri.AttributeValues.SetValue(attribute3,pitName);
 			triangulationList.Add(tri);
 		}
 		var polyList = new List<Shape>();
