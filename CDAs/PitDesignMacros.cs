@@ -99,7 +99,6 @@ public partial class PitDesignHelper
 			var blockSpacing = (double) customDesignAction.ActionSettings[5].Value;
 			var blockDirection = (Vector3D) customDesignAction.ActionSettings[6].Value;
 			var strips = OffsetInputLine(selectedLine, stripSpacing, stripRepetitions);
-			Console.WriteLine(strips.Count);
 			List<IShape> allStrips = selectedLine;
 			allStrips.AddRange(strips);
 			var stripLineLayer = Layer.GetOrCreate(folderName.Value + @"\Strip Lines");
@@ -400,7 +399,6 @@ public partial class PitDesignHelper
 		{
 			var options = Actions.CreateAllClosedAreas.CreateOptions(inputShapesList,progress);
 			var polys = Actions.CreateAllClosedAreas.Run(options);
-			Console.WriteLine(polys.Polygons.Count);
 			foreach(var poly in polys.Polygons)
 			{
 				var pointList = new List<Point3D>();
@@ -413,13 +411,6 @@ public partial class PitDesignHelper
 				shapeList.Add(shape);
 			}
 		}
-		
-		var x = Layer.GetOrCreate("JackTest");
-		foreach(var shape in inputShapesList)
-		{
-			x.Shapes.Add(shape.Clone());
-		}
-		
 		return shapeList;
 	}
 	
