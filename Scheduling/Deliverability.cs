@@ -231,7 +231,6 @@ public partial class SinkRate
                     continue;
 				
 				totalThickness += (data.roofZ - data.floorZ) * data.pctCompleted;
-				Console.WriteLine(node.FullName);
             }
 
             foreach (var node in hash)
