@@ -219,28 +219,22 @@ public partial class SinkRate
 
         foreach (var grp in blkgrp)
         {
-            double max = double.NegativeInfinity;
-            double min = double.PositiveInfinity;
+            double totalThickness = 0.0;
+			
+			var hash = grp.ToHashSet();
 
-            foreach (var node in grp)
+            foreach (var node in hash)
             {
                 StepData data;
+				
                 if (!m_groupingData.TryGetValue(node, out data))
                     continue;
-
-                double diff = data.roofZ - data.floorZ;
-                double rl = data.roofZ - diff * data.pctCompleted;
-
-                max = Math.Max(max, rl);
-                min = Math.Min(min, rl);
+				
+				totalThickness += (data.roofZ - data.floorZ) * data.pctCompleted;
+				Console.WriteLine(node.FullName);
             }
 
-            if (double.IsInfinity(max) || double.IsInfinity(min))
-                continue;
-
-            double sinkRate = max - min;
-
-            foreach (var node in grp)
+            foreach (var node in hash)
             {
                 List<sinkRatePercentageCompleted> sinkRates;
                 if (!m_sinkRates.TryGetValue(node, out sinkRates))
@@ -249,7 +243,7 @@ public partial class SinkRate
                     m_sinkRates.Add(node, sinkRates);
                 }
 				sinkRatePercentageCompleted toAdd = new sinkRatePercentageCompleted();
-				toAdd.sinkRate=sinkRate;
+				toAdd.sinkRate=totalThickness;
 				StepData data;
 				if(!m_groupingData.TryGetValue(node, out data))
 					toAdd.percentageCompleted = 0.0;
@@ -439,7 +433,7 @@ public partial class SinkRate
 		destFloorCentroid.SetTable(destinationTableCase);
 		destFloorCentroid.RestoreValue("SINK-RATE-DEST-FLOOR-CENTROID", f => f.FullName, s => caseSelector.Value.DestinationTable.Schema.GetFieldOrThrow(s));
 		
-		var fillRateFieldSelector = form.Options.AddFieldSelect("Fill Rate Field").SetVisible(sourceSinkRateOption.Value).SetDisplayFilter(f => f.DataType.Name == "Double");
+		var fillRateFieldSelector = form.Options.AddFieldSelect("Fill Rate Field").SetVisible(dumpFillRateOption.Value).SetDisplayFilter(f => f.DataType.Name == "Double");
 		fillRateFieldSelector.SetTable(destinationTableCase);
 		fillRateFieldSelector.RestoreValue("FILL-RATE-FIELD", f => f.FullName, s => caseSelector.Value.DestinationTable.Schema.GetFieldOrThrow(s));
 		
